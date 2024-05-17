@@ -219,9 +219,10 @@ if __name__ == "__main__":
         f["rowSize"][:] = 0
         for i,filename in enumerate(os.listdir("by_station")):
             st = filename.replace(".csv", "")
-
-            # station
-            f["station"][i] = st
+            f["station"][i] = netCDF4.stringtochar(np.array([st], dtype="S11"))
+            lat[i] = stationsdf[stationsdf["station_id"] == st.encode("ascii")].iloc[0]["lat"]
+            lon[i] = stationsdf[stationsdf["station_id"] == st.encode("ascii")].iloc[0]["lon"]
+            alt[i] = stationsdf[stationsdf["station_id"] == st.encode("ascii")].iloc[0]["elevation"]
 
             # observations
             data = np.genfromtxt("by_station/" + filename, delimiter=",", dtype=values_dtype)
