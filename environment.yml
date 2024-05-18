@@ -4,3 +4,4 @@ channels:
 dependencies:
   - cf-python
   - cf-plot
+  - tqdm

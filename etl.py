@@ -6,6 +6,7 @@ import netCDF4
 import cftime
 import requests
 from datetime import datetime
+from tqdm import tqdm
 
 values_dtype = np.dtype([
     ('station_id', 'S11'),
@@ -170,7 +171,7 @@ if __name__ == "__main__":
             shuffle=True)
         time.setncattr("standard_name", "time")
         time.setncattr("long_name", "time of measurement")
-        time.setncattr("units", "days since 1900-01-01 00:00:00")
+        time.setncattr("units", "days since 1500-01-01 00:00:00")
         time.setncattr("calendar", "gregorian")
         time.setncattr("axis", "T")
         time.setncattr("_CoordinateAxisType", "Time")
@@ -217,7 +218,7 @@ if __name__ == "__main__":
 
         # write
         f["rowSize"][:] = 0
-        for i,filename in enumerate(os.listdir("by_station")):
+        for i,filename in tqdm(enumerate(os.listdir("by_station"))):
             st = filename.replace(".csv", "")
             f["station"][i] = netCDF4.stringtochar(np.array([st], dtype="S11"))
             lat[i] = stationsdf[stationsdf["station_id"] == st.encode("ascii")].iloc[0]["lat"]
@@ -229,7 +230,7 @@ if __name__ == "__main__":
             all_dates = data["date"]
             uniq_dates = np.sort(np.unique(all_dates)).astype("U8")
             uniq_datetimes = [datetime.strptime(date, "%Y%m%d") for date in uniq_dates]
-            uniq_cftimes = [cftime.date2num(date, "days since 1750-01-01 00:00:00", "gregorian") for date in uniq_datetimes]
+            uniq_cftimes = [cftime.date2num(date, "days since 1500-01-01 00:00:00", "gregorian") for date in uniq_datetimes]
 
             frm = int(f["rowSize"][...].sum())
             to = int(frm + len(uniq_cftimes))
@@ -251,5 +252,3 @@ if __name__ == "__main__":
                 idx = idx + frm
                 
                 f[v["cfname"]][idx] = vdata["value"]
-
-            print(st, flush=True)
