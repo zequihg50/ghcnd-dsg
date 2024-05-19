@@ -4,4 +4,9 @@ channels:
 dependencies:
   - cf-python
   - cf-plot
+  - xarray
+  - pandas
+  - cftime
+  - matplotlib
+  - cartopy
   - tqdm
