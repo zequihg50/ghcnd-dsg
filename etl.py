@@ -29,7 +29,8 @@ VS = [
             {
                 "standard_name": "precipitation_flux",
                 "coordinates": "time lat lon alt station",
-                "units": "kg m-2 s-1"
+                "units": "mm",
+                "scale_factor": np.float32(.1),
             }
     },
     {
@@ -39,7 +40,8 @@ VS = [
             {
                 "standard_name": "air_temperature",
                 "coordinates": "time lat lon alt station",
-                "units": "K",
+                "units": "Celsius",
+                "scale_factor": np.float32(.1),
             }
     },
     {
@@ -49,7 +51,8 @@ VS = [
             {
                 "standard_name": "air_temperature",
                 "coordinates": "time lat lon alt station",
-                "units": "K",
+                "units": "Celsius",
+                "scale_factor": np.float32(.1),
             }
     },
     {
@@ -139,6 +142,7 @@ if __name__ == "__main__":
             "alt",
             "f4",
             ("timeseries",),
+            fill_value=np.float32(-999.9),
             compression="zlib",
             complevel=1,
             shuffle=True)
@@ -171,7 +175,7 @@ if __name__ == "__main__":
             shuffle=True)
         time.setncattr("standard_name", "time")
         time.setncattr("long_name", "time of measurement")
-        time.setncattr("units", "days since 1500-01-01 00:00:00")
+        time.setncattr("units", "days since 1600-01-01 00:00:00")
         time.setncattr("calendar", "gregorian")
         time.setncattr("axis", "T")
         time.setncattr("_CoordinateAxisType", "Time")
@@ -194,9 +198,9 @@ if __name__ == "__main__":
                 compression="zlib",
                 complevel=1,
                 shuffle=True,
-                fill_value=MISSING,
+                fill_value=MISSING / v["attrs"].get("scale_factor", np.float32(1)),
                 fletcher32=True)
-            f[v["cfname"]].setncattr("missing_value", MISSING)
+            f[v["cfname"]].setncattr("missing_value", MISSING / v["attrs"].get("scale_factor", np.float32(1)))
             for attr in v["attrs"]:
                 f[v["cfname"]].setncattr(attr, v["attrs"][attr])
 
@@ -230,7 +234,7 @@ if __name__ == "__main__":
             all_dates = data["date"]
             uniq_dates = np.sort(np.unique(all_dates)).astype("U8")
             uniq_datetimes = [datetime.strptime(date, "%Y%m%d") for date in uniq_dates]
-            uniq_cftimes = [cftime.date2num(date, "days since 1500-01-01 00:00:00", "gregorian") for date in uniq_datetimes]
+            uniq_cftimes = [cftime.date2num(date, "days since 1600-01-01 00:00:00", "gregorian") for date in uniq_datetimes]
 
             frm = int(f["rowSize"][...].sum())
             to = int(frm + len(uniq_cftimes))
@@ -242,6 +246,7 @@ if __name__ == "__main__":
                 vname = v["name"].encode("ascii")
                 vdata = data[data["var"] == vname]
 
+                #f[v["cfname"]][frm:to] = np.repeat(MISSING/v["attrs"].get("scale_factor", np.float32(1)), len(uniq_cftimes))
                 f[v["cfname"]][frm:to] = np.repeat(MISSING, len(uniq_cftimes))
                 
                 idx = np.where(
