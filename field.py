@@ -57,7 +57,7 @@ class TimeAxisCRA:
                 self.max = self.idx[i][1]
 
     def size(self):
-        return self.max - self.min + 1
+        return self.max - self.min + 1 # assumes "time step" is 1 (in this case 1 day)
 
     def __build_idx(self, nc):
         idx = dict()
@@ -74,6 +74,7 @@ class TimeAxisCRA:
 class Dataset:
 
     def __init__(self, nc):
+        self.nc = nc
         self.lat = nc["lat"][...]
         self.lon = nc["lon"][...]
         self.stations = nc["station"][...]
@@ -96,6 +97,36 @@ class Field:
         self.dataset = dataset
         self.name = name
 
+    def nc(self):
+        return self.dataset.nc
+
+    def get_time_step(self, date):
+        numdate = cftime.date2num(date, self.dataset.time.units, self.dataset.time.calendar)
+        # find the stations with this date
+        st = []
+        idx = self.dataset.time.idx
+        for s in idx:
+            if numdate >= idx[s][0] and numdate <= idx[s][1]: # ok, it is in the index
+                # locate the value of the field in the netCDF
+                stcsum  = self.nc()["rowSize"][...].cumsum()
+                ststart = stcsum[s] - self.nc()["rowSize"][s]
+                stend   = stcsum[s]
+                sttimes = list(self.nc()["time"][ststart:stend])
+
+                f = self.nc()[self.name]
+                # it may be the case that the date falls in the interval of the station but it doesn't exist
+                try:
+                    vi = sttimes.index(numdate)
+                except:
+                    st.append((s,np.nan))
+                else:
+                    v = f[ststart+vi]
+                    st.append((s,v))
+            else:
+                st.append((s,np.nan))
+
+        return np.asarray(st)
+
     def __str__(self):
         return f"{self.name}: " + self.dataset.__str__()
 
@@ -105,7 +136,7 @@ class Field:
 def read(nc):
     dataset = Dataset(nc)
     fields = list()
-    for v in ["tasmin", "taxmax"]:
+    for v in ["tasmin", "taxmax", "pr"]:
         fields.append(Field(dataset, v))
     return fields
 
@@ -113,3 +144,9 @@ if __name__ == "__main__":
     with netCDF4.Dataset(NC) as nc:
         fields = read(nc)
         print(fields)
+
+        pr = fields[2]
+        d = cftime.num2date(0, "days since 1916-06-03 00:00:00", "gregorian")
+        print(f"Asking for date: {d}")
+        subset = pr.get_time_step(d)
+        print(subset)
