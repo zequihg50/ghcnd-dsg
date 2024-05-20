@@ -125,6 +125,40 @@ class Field:
 
         return np.asarray(st)
 
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            numdate_start = cftime.date2num(item.start, self.dataset.time.units, self.dataset.time.calendar)
+            numdate_stop  = cftime.date2num(item.stop , self.dataset.time.units, self.dataset.time.calendar)
+
+            # create the time slice, since it does not exist in the netCDF
+            # assumen time step of 1
+            time_slice = np.arange(numdate_start, numdate_stop+1) # includes stop
+
+            # create the numpy array that will hold the output data
+            arr = np.empty((self.nc().dimensions["timeseries"].size, len(time_slice)))
+
+            st = []
+            idx = self.dataset.time.idx
+            for s in idx:
+                arr[s] = np.repeat(np.nan, len(time_slice))
+                if numdate_start < idx[s][1] or numdate_stop >= idx[s][0]:
+                    # locate the values of the field in the netCDF
+                    stcsum  = self.nc()["rowSize"][...].cumsum()
+                    ststart = stcsum[s] - self.nc()["rowSize"][s]
+                    stend   = stcsum[s]
+                    sttimes = self.nc()["time"][ststart:stend].astype(np.int32)
+                    sttimes_slic = sttimes[(sttimes >= numdate_start) & (sttimes <= numdate_stop)]
+
+                    field_view = self.nc()[self.name][ststart:stend]
+                    vs = field_view[(sttimes >= numdate_start) & (sttimes <= numdate_stop)]
+                    #print(vs.shape) # 6
+                    #print(sttimes.shape) # 2500 (el rowSize de la estacion)
+                    #print(sttimes_slic.shape) # 6
+                    #print(sttimes_slic-numdate_start)
+                    arr[s, sttimes_slic-numdate_start] = vs
+
+            return arr
+
     def __str__(self):
         return f"{self.name}: " + self.dataset.__str__()
 
@@ -144,7 +178,13 @@ if __name__ == "__main__":
         print(fields)
 
         pr = fields[2]
-        d = cftime.num2date(0, "days since 1916-06-03 00:00:00", "gregorian")
-        print(f"Asking for date: {d}")
-        subset = pr.get_time_step(d)
+        d1 = cftime.num2date(0, "days since 1916-06-03 00:00:00", "gregorian")
+        d2 = cftime.num2date(5, "days since 1916-06-03 00:00:00", "gregorian")
+        print(f"Asking for date: {d1}")
+        subset = pr.get_time_step(d1)
+        print("Done.")
+
+        print(f"Asking for slice: {d1}, {d2}")
+        subset = pr[slice(d1,d2)]
         print(subset)
+        print("Done.")
