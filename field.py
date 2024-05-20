@@ -111,19 +111,17 @@ class Field:
                 stcsum  = self.nc()["rowSize"][...].cumsum()
                 ststart = stcsum[s] - self.nc()["rowSize"][s]
                 stend   = stcsum[s]
-                sttimes = list(self.nc()["time"][ststart:stend])
+                sttimes = self.nc()["time"][ststart:stend]
 
-                f = self.nc()[self.name]
-                # it may be the case that the date falls in the interval of the station but it doesn't exist
-                try:
-                    vi = sttimes.index(numdate)
-                except:
-                    st.append((s,np.nan))
+                # assumes array is sorted, it should since it is the time coordinate
+                pos = np.searchsorted(sttimes, numdate, side="left")
+                if pos < sttimes.size:
+                    if sttimes[pos] == numdate:
+                        f = self.nc()[self.name]
+                        v = f[ststart+pos]
+                        st.append((s,v))
                 else:
-                    v = f[ststart+vi]
-                    st.append((s,v))
-            else:
-                st.append((s,np.nan))
+                    st.append((s, np.nan))
 
         return np.asarray(st)
 
