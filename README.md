@@ -30,3 +30,35 @@ OBS-TIME = 4-character time of observation in hour-minute format (i.e. 0700 =7:0
 - Include metadata from stations (compound data type in station\_info variable?)
 - Difference between https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/ and https://www.ncei.noaa.gov/pub/data/ghcn/daily/?
 - This is not going to work in the full dataset... See `pr.subspace(T=cf.dt('1916-06-03'))` vs `python field.py`.
+
+In the full dataset:
+
+```
+dimensions:
+	name_strlen = 11 ;
+	timeseries = UNLIMITED ; // (125987 currently)
+	obs = UNLIMITED ; // (1122439562 currently)
+
+$ time python field.py 
+Processing axis time.
+Processing axis lat.
+Processing axis lon.
+Processing axis alt.
+Processing axis station.
+[pr: Station: 125987 Lat: 125987, Lon: 125987, Time: 100183 (1750-02-01 00:00:00, 2024-05-17 00:00:00)
+]
+Subspacing 1916-06-03 00:00:00-2018-06-08 00:00:00 at lat=-29.0.
+Done ((23, 37261)).
+Subspacing 1916-06-03 00:00:00-2018-06-08 00:00:00 at lat=slice(-29.0, -20.0, None).
+Done ((7549, 37261)).
+Subspacing 1916-06-03 00:00:00-2018-06-08 00:00:00 at lat=slice(-29.0, -12.0, None),lon=slice(117.0, 170.0, None).
+Done ((5367, 37261)).
+Subspacing stations ['ASN00001028', 'ASN00003002', 'ASN00006049', 'ASN00007064', 'ASN00004064'].
+Done ((5, 100183)).
+Subspacing stations ['ASN00001028', 'ASN00003002', 'ASN00006049', 'ASN00007064', 'ASN00004064'] at 1916-06-03 00:00:00-2018-06-08 00:00:00.
+Done ((5, 37261)).
+
+real	1m8,879s
+user	1m6,967s
+sys	0m2,427s
+```
