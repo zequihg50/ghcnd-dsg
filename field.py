@@ -161,15 +161,31 @@ class Field:
                     ksubset = self.nc[k] == kwargs[k]
 
             if k == "station":
-                # ToDo, index by station name
-                pass
+                if isinstance(kwargs[k], list):
+                    # list of strings, retrieve matches
+                    if "_Encoding" in self.nc[k].ncattrs():
+                        ksubset = np.isin(self.nc[k][...], kwargs[k])
+                    else:
+                        ksubset = np.isin(netCDF4.chartostring(self.nc[k][...]), kwargs[k])
+                else:
+                    # consider a station name only
+                    if "_Encoding" in self.nc[k].ncattrs():
+                        ksubset = self.nc[k][...] == kwargs[k]
+                    else:
+                        ksubset = netCDF4.chartostring(self.nc[k][...]) == kwargs[k]
 
             subset = np.logical_and(subset, ksubset)
 
         # now subset contains and array of booleans where True signal stations of interest
         self.mask = subset
-        arr = self.__getitem__(kwargs["time"])
+        if "time" in kwargs:
+            subset_time = kwargs["time"]
+        else:
+            subset_time = slice(
+                    cftime.num2date(self.axes["time"].min, self.axes["time"].units, self.axes["time"].calendar),
+                    cftime.num2date(self.axes["time"].max, self.axes["time"].units, self.axes["time"].calendar))
 
+        arr = self.__getitem__(subset_time)
         # restore mask and return
         self.mask = np.repeat(True, self.nc.dimensions["timeseries"].size)
         return arr
@@ -217,4 +233,13 @@ if __name__ == "__main__":
         lon=slice(np.float32(117.), np.float32(170.))
         print(f"Subspacing {d1}-{d2} at lat={lat},lon={lon}.")
         subset = pr.subspace(time=slice(d1,d2), lat=lat, lon=lon)
+        print(f"Done ({subset.shape}).")
+
+        stations=['ASN00001028', 'ASN00003002', 'ASN00006049', 'ASN00007064', 'ASN00004064']
+        print(f"Subspacing stations {stations}.")
+        subset = pr.subspace(station=stations)
+        print(f"Done ({subset.shape}).")
+
+        print(f"Subspacing stations {stations} at {d1}-{d2}.")
+        subset = pr.subspace(station=stations,time=slice(d1,d2))
         print(f"Done ({subset.shape}).")
