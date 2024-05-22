@@ -3,9 +3,17 @@ import netCDF4
 import cftime
 import math
 
+from scipy.sparse import coo_matrix
+
 NC = "ghcn-dsg.nc"
 NC = "ghcn-dsg1000.nc"
 #NC = "ghcn-dsg20240524.nc"
+
+STATIONS = {
+        "ghcn-dsg.nc": ["ASN00006076", "ASN00006053", "ASN00007001"],
+        "ghcn-dsg1000.nc": ['ASN00001028', 'ASN00003002', 'ASN00006049', 'ASN00007064', 'ASN00004064'],
+        "ghcn-dsg20240524.nc": ['ASN00001028', 'ASN00003002', 'ASN00006049', 'ASN00007064', 'ASN00004064'],
+}
 
 # Time Axis for Continous Ragged Array
 class TimeAxisCRA:
@@ -92,27 +100,29 @@ class FieldView:
     def __str__(self):
         tstart = cftime.num2date(self.time_min, self.field.axes["time"].units, self.field.axes["time"].calendar)
         tend   = cftime.num2date(self.time_max, self.field.axes["time"].units, self.field.axes["time"].calendar)
-        return f"{self.field.name}: Station: {self.mask.sum()} Lat: {self.mask.sum()}, Lon: {self.mask.sum()}, Time: {self.time_max-self.time_min} ({tstart}, {tend})\n"
+        return f"{self.field.name}: Station: {self.mask.sum()} Lat: {self.mask.sum()}, Lon: {self.mask.sum()}, Time: {self.time_max-self.time_min} ({tstart}, {tend})"
 
     def __repr__(self):
         return self.__str__()
 
     # return the data of the field view as a numpy array
-    def data(self):
+    def dense(self):
+        #return self.coo().toarray() # consume mucha memoria?
         # assume time step of 1
-        time_slice = np.arange(self.time_min, self.time_max+1) # includes stop
+        time_slice = self.time_max - self.time_min + 1 # includes stop
 
         # create the numpy array that will hold the output data
-        arr = np.empty((self.mask.sum(), len(time_slice)))
-
-        st = []
+        arr = np.ma.MaskedArray(
+                np.empty((self.mask.sum(), time_slice), dtype=self.field.nc[self.field.name].dtype),
+                mask=np.repeat(True, (self.mask.sum()*time_slice)).reshape((self.mask.sum(), time_slice)),
+                fill_value=self.field.nc[self.field.name]._FillValue,
+                dtype=self.field.nc[self.field.name].dtype)
         idx = self.field.axes["time"].idx
         counter = 0 # counts number of stations added, needed to take into account the mask
         for s in idx:
             if not self.mask[s]:
                 continue
 
-            arr[counter] = np.repeat(np.nan, len(time_slice))
             if self.time_min < idx[s][1] or self.time_max >= idx[s][0]:
                 # locate the values of the field in the netCDF
                 stcsum  = self.field.nc["rowSize"][...].cumsum()
@@ -124,16 +134,50 @@ class FieldView:
                 field_view = self.field.nc[self.field.name][ststart:stend]
                 vs = field_view[(sttimes >= self.time_min) & (sttimes <= self.time_max)]
                 arr[counter, sttimes_slic-self.time_min] = vs
+                arr[counter, sttimes_slic-self.time_min].mask = vs.mask
 
             counter += 1
 
         return arr
 
+#    # return the data of the field view as an scipy coo
+#    def coo(self):
+#        idx = self.field.axes["time"].idx
+#        counter = 0 # counts number of stations added, needed to take into account the mask
+#
+#        arr, row, col = [], [], []
+#        for s in idx:
+#            if not self.mask[s]:
+#                continue
+#
+#            if self.time_min < idx[s][1] or self.time_max >= idx[s][0]:
+#                # locate the values of the field in the netCDF
+#                stcsum  = self.field.nc["rowSize"][...].cumsum()
+#                ststart = stcsum[s] - self.field.nc["rowSize"][s]
+#                stend   = stcsum[s]
+#                sttimes = self.field.nc["time"][ststart:stend].astype(np.int32)
+#                sttimes_slic = sttimes[(sttimes >= self.time_min) & (sttimes <= self.time_max)]
+#
+#                field_view = self.field.nc[self.field.name][ststart:stend]
+#                vs = field_view[(sttimes >= self.time_min) & (sttimes <= self.time_max)].data # load the data with the fill value of the netCDF
+#
+#                col.extend(sttimes_slic-self.time_min)
+#                row.extend([counter]*len(sttimes_slic))
+#                arr.extend(vs)
+#
+#            counter += 1
+#
+#        coo = coo_matrix(
+#                (arr, (row,col)),
+#                shape=(counter, self.time_max-self.time_min+1),
+#                dtype=self.field.nc[self.field.name].dtype)
+#
+#        return coo
+
     def subspace(self, **kwargs):
         for k in kwargs:
             if k not in self.field.axes:
-                print(f"Invalid axis {k}.")
-                return np.array([])
+                raise ValueError(f"Subspace field ({self.field.name}) on invalid axis ({k}).")
 
         # if subspacing any other coordinates then optimize the time axis
         #subset = np.repeat(True, self.field.nc.dimensions["timeseries"].size)
@@ -192,49 +236,64 @@ def read(nc):
         fields.append(FieldView(Field(v, nc, dataset)))
     return fields
 
+def print_field_list(field_list):
+    txt = "\nFields:\n"
+    for f in field_list:
+        txt += f"  {f}\n"
+
+    print(txt)
+
 if __name__ == "__main__":
     with netCDF4.Dataset(NC) as nc:
         fields = read(nc)
-        print(fields)
+        print_field_list(fields)
 
         pr = fields[2]
-        d1 = cftime.num2date(0, "days since 1916-06-03 00:00:00", "gregorian")
-        d2 = cftime.num2date(5, "days since 2018-06-03 00:00:00", "gregorian")
+        d1 = cftime.num2date(0, "days since 1980-06-03 00:00:00", "gregorian")
+        d2 = cftime.num2date(5, "days since 2000-06-03 00:00:00", "gregorian")
 
-        print(f"Asking for date: {d1}")
-        #subset = pr[d1].data()
-        subset = pr.subspace(time=d1).data()
-        print(f"Done ({subset.shape}).")
-
-        # Too much memory in full dataset. Don't ask for data().
-        print(f"Asking for slice: {d1}, {d2}")
+        # Querying data for all stations is the worst query in contiguous ragged array
+        print(f"Asking for slice: {d1}, {d2} for all stations (this is the slowest possible query, wait for it).")
         subset = pr.subspace(time=slice(d1,d2))
-        print(f"Done ({subset}).")
+        print(f"Computing max for each station as ndarray {subset}.")
+        maxs = subset.dense().max(1).ravel()
+        print(f"{maxs[:10]} ({maxs.count()} non masked values out of {maxs.size})")
+#        print(f"Computing max for each station as COO {subset}.")
+#        print(list(subset.coo().max(1).toarray().ravel()[:10]))
 
         print(f"Subspacing wrong axis.")
-        pr.subspace(oooh=slice(d1,d2))
+        try:
+            pr.subspace(oooh=slice(d1,d2))
+        except ValueError:
+            print("Invalid subspace on wrong axis detected, ignoring...")
 
         lat=np.float32(-29.)
         print(f"Subspacing {d1}-{d2} at lat={lat}.")
-        subset = pr.subspace(time=slice(d1,d2), lat=lat).data() # stations ASN00007125 ASN00007144 in the 1000 dataset (23 stations in the full dataset)
+        subset = pr.subspace(time=slice(d1,d2), lat=lat).dense() # stations ASN00007125 ASN00007144 in the 1000 dataset (23 stations in the full dataset)
         print(f"Done ({subset.shape}).")
 
         lat=slice(np.float32(-29.), np.float32(-20.))
         print(f"Subspacing {d1}-{d2} at lat={lat}.")
-        subset = pr.subspace(time=slice(d1,d2), lat=lat).data()
+        subset = pr.subspace(time=slice(d1,d2), lat=lat).dense()
         print(f"Done ({subset.shape}).")
 
         lat=slice(np.float32(-29.), np.float32(-12.))
         lon=slice(np.float32(117.), np.float32(170.))
         print(f"Subspacing {d1}-{d2} at lat={lat},lon={lon}.")
-        subset = pr.subspace(time=slice(d1,d2), lat=lat, lon=lon).data()
+        subset = pr.subspace(time=slice(d1,d2), lat=lat, lon=lon).dense()
         print(f"Done ({subset.shape}).")
 
-        stations=['ASN00001028', 'ASN00003002', 'ASN00006049', 'ASN00007064', 'ASN00004064']
-        print(f"Subspacing stations {stations}.")
-        subset = pr.subspace(station=stations).data()
+        print(f"Subspacing stations {STATIONS[NC]}.")
+        subset = pr.subspace(station=STATIONS[NC]).dense()
         print(f"Done ({subset.shape}).")
 
-        print(f"Subspacing stations {stations} at {d1}-{d2}.")
-        subset = pr.subspace(station=stations,time=slice(d1,d2)).data()
+        d1 = cftime.num2date(0, "days since 1916-06-03 00:00:00", "gregorian")
+        d2 = cftime.num2date(5, "days since 1916-07-03 00:00:00", "gregorian")
+
+        print(f"Subspacing stations {STATIONS[NC]} at {d1}-{d2}.")
+        subset = pr.subspace(station=STATIONS[NC],time=slice(d1,d2)).dense()
         print(f"Done ({subset.shape}).")
+
+#        print(f"Subspacing stations {STATIONS[NC]} at {d1}-{d2} as COO.")
+#        subset_coo = pr.subspace(station=STATIONS[NC],time=slice(d1,d2)).coo()
+#        print(f"Done ({subset.shape}), match={(subset==subset_coo.todense()).all()} (does not match because of the fill value...).")
