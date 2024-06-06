@@ -311,3 +311,11 @@ if __name__ == "__main__":
 #        print(f"Subspacing stations {STATIONS[NC]} at {d1}-{d2} as COO.")
 #        subset_coo = pr.subspace(station=STATIONS[NC],time=slice(d1,d2)).coo()
 #        print(f"Done ({subset.shape}), match={(subset==subset_coo.todense()).all()} (does not match because of the fill value...).")
+
+        # All US stations
+        if NC == "ghcn-dsg20240524.nc":
+            st = netCDF4.chartostring(nc["station"][...])
+            st = list(st[np.char.startswith(st, 'US')])
+            print(f"Subspacing US stations ({len(st)}).")
+            subset = pr.subspace(station=st,time=slice(d1,d2)).dense()
+            print(f"Done ({subset.shape}).")
