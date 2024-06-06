@@ -47,10 +47,19 @@ class TimeAxisCRA:
         rs = nc["rowSize"][...]
         rscsum = nc["rowSize"][...].cumsum()
 
-        for i in range(nc["station"].shape[0]):
-            start = nc["time"][rscsum[i] - rs[i]].item()
-            end = nc["time"][rscsum[i] - 1].item()
-            idx[i] = (int(start), int(end))
+        # read start and end time values for each station
+        #for i in range(nc["station"].shape[0]):
+        #    start = nc["time"][rscsum[i] - rs[i]].item()
+        #    end = nc["time"][rscsum[i] - 1].item()
+        #    idx[i] = (int(start), int(end))
+
+        a = np.concatenate([np.array([0]), rscsum, rscsum-1])[:-1]
+        a.sort()
+        a[-1] = a[-1] - 1
+        a = nc["time"][a]
+        a = a.reshape((-1,2))
+        for i, times in enumerate(a):
+            idx[i] = (int(times[0]), int(times[1]))
 
         return idx
 
@@ -196,11 +205,16 @@ class FieldView:
 
             if k == "station":
                 if isinstance(kwargs[k], list):
-                    # list of strings, retrieve matches
-                    if "_Encoding" in self.field.nc[k].ncattrs():
-                        ksubset = np.isin(self.field.nc[k][...], kwargs[k])
-                    else:
-                        ksubset = np.isin(netCDF4.chartostring(self.field.nc[k][...]), kwargs[k])
+                    if isinstance(kwargs[k][0], str):
+                        # list of strings, retrieve matches
+                        if "_Encoding" in self.field.nc[k].ncattrs():
+                            ksubset = np.isin(self.field.nc[k][...], kwargs[k])
+                        else:
+                            ksubset = np.isin(netCDF4.chartostring(self.field.nc[k][...]), kwargs[k])
+                    elif isinstance(kwargs[k][0], int):
+                        # subspace by integer position
+                        ksubset = np.repeat(False, self.field.nc[k].shape[0])
+                        ksubset[kwargs[k]] = True
                 else:
                     # consider a station name only
                     if "_Encoding" in self.field.nc[k].ncattrs():
