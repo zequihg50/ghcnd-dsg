@@ -8,18 +8,20 @@ import requests
 from datetime import datetime
 from tqdm import tqdm
 
+SRC_DIR = "by_station"
+
 values_dtype = np.dtype([
     ('station_id', 'S11'),
     ('date', 'S8'),
     ('var', 'S4'),
-    ('value', 'f4'),
+    ('value', 'i4'),
     ('mflag', 'S1'),
     ('qflag', 'S1'),
     ('sflag', 'S1'),
     ('obstime', 'S4'),
 ])
 
-MISSING = np.float32(999.9)
+MISSING = np.int16(9999)
 
 VS = [
     {
@@ -30,7 +32,7 @@ VS = [
                 "standard_name": "precipitation_flux",
                 "coordinates": "time lat lon alt station",
                 "units": "mm",
-                "scale_factor": np.float32(.1),
+                "scale_factor": np.float64(.1),
             }
     },
     {
@@ -41,7 +43,7 @@ VS = [
                 "standard_name": "air_temperature",
                 "coordinates": "time lat lon alt station",
                 "units": "Celsius",
-                "scale_factor": np.float32(.1),
+                "scale_factor": np.float64(.1),
             }
     },
     {
@@ -52,7 +54,7 @@ VS = [
                 "standard_name": "air_temperature",
                 "coordinates": "time lat lon alt station",
                 "units": "Celsius",
-                "scale_factor": np.float32(.1),
+                "scale_factor": np.float64(.1),
             }
     },
     {
@@ -142,7 +144,7 @@ if __name__ == "__main__":
             "alt",
             "f4",
             ("timeseries",),
-            fill_value=np.float32(-999.9),
+            fill_value=np.float64(-999.9),
             compression="zlib",
             complevel=1,
             shuffle=True)
@@ -198,9 +200,10 @@ if __name__ == "__main__":
                 compression="zlib",
                 complevel=1,
                 shuffle=True,
-                fill_value=MISSING / v["attrs"].get("scale_factor", np.float32(1)),
+                fill_value=MISSING,
                 fletcher32=True)
-            f[v["cfname"]].setncattr("missing_value", MISSING / v["attrs"].get("scale_factor", np.float32(1)))
+            f[v["cfname"]].set_auto_scale(False)
+            f[v["cfname"]].setncattr("missing_value", MISSING)
             for attr in v["attrs"]:
                 f[v["cfname"]].setncattr(attr, v["attrs"][attr])
 
@@ -222,7 +225,7 @@ if __name__ == "__main__":
 
         # write
         f["rowSize"][:] = 0
-        for i,filename in tqdm(enumerate(os.listdir("by_station"))):
+        for i,filename in tqdm(enumerate(os.listdir(SRC_DIR))):
             st = filename.replace(".csv", "")
             f["station"][i] = netCDF4.stringtochar(np.array([st], dtype="S11"))
             lat[i] = stationsdf[stationsdf["station_id"] == st.encode("ascii")].iloc[0]["lat"]
@@ -230,7 +233,7 @@ if __name__ == "__main__":
             alt[i] = stationsdf[stationsdf["station_id"] == st.encode("ascii")].iloc[0]["elevation"]
 
             # observations
-            data = np.genfromtxt("by_station/" + filename, delimiter=",", dtype=values_dtype)
+            data = np.genfromtxt(SRC_DIR + "/" + filename, delimiter=",", dtype=values_dtype)
             all_dates = data["date"]
             uniq_dates = np.sort(np.unique(all_dates)).astype("U8")
             uniq_datetimes = [datetime.strptime(date, "%Y%m%d") for date in uniq_dates]
@@ -246,9 +249,8 @@ if __name__ == "__main__":
                 vname = v["name"].encode("ascii")
                 vdata = data[data["var"] == vname]
 
-                #f[v["cfname"]][frm:to] = np.repeat(MISSING/v["attrs"].get("scale_factor", np.float32(1)), len(uniq_cftimes))
                 f[v["cfname"]][frm:to] = np.repeat(MISSING, len(uniq_cftimes))
-                
+
                 idx = np.where(
                     np.isin(
                         uniq_dates,
