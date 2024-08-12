@@ -1,6 +1,6 @@
 # GHCNd as DSG
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/zequihg50/ghcnd-dsg/HEAD?labpath=cf-demo.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/zequihg50/ghcnd-dsg/HEAD?labpath=nc-demo.ipynb)
 
 The Global Historical Climatology Network - Daily (GHCN-Daily) dataset integrates daily climate observations from approximately 30 different data sources.
 
