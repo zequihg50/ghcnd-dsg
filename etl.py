@@ -107,8 +107,8 @@ def parse_date(d):
         
 if __name__ == "__main__":
     with netCDF4.Dataset("ghcn-dsg.nc", "w") as f:
-        f.setncattr("featureType", "TimeSeries")
-        f.setncattr("cdm_data_type", "TimeSeries")
+        f.setncattr("featureType", "timeSeries")
+        #f.setncattr("cdm_data_type", "timeSeries")
         f.setncattr("Conventions", "COARDS, CF-1.6, ACDD-1.3")
         
         f.createDimension("name_strlen", 11)
@@ -197,11 +197,12 @@ if __name__ == "__main__":
                 v["cfname"],
                 MISSING.dtype,
                 ("obs",),
+                chunks=(8192,),  # by default it chooses 2048, for 1 billion observations involves half a million chunks
                 compression="zlib",
                 complevel=1,
                 shuffle=True,
-                fill_value=MISSING,
-                fletcher32=True)
+                fill_value=MISSING)
+                #fletcher32=True)  # disabled to avoid issues with kerchunk in the future
             f[v["cfname"]].set_auto_scale(False)
             f[v["cfname"]].setncattr("missing_value", MISSING)
             for attr in v["attrs"]:
