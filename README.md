@@ -26,7 +26,6 @@ OBS-TIME = 4-character time of observation in hour-minute format (i.e. 0700 =7:0
 
 ## ToDo
 
-- Include flags in the data (1 character type).
 - Include metadata from stations (compound data type in station\_info variable?)
 - Difference between https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/ and https://www.ncei.noaa.gov/pub/data/ghcn/daily/?
 - This is not going to work in the full dataset... See `pr.subspace(T=cf.dt('1916-06-03'))` vs `python field.py`.
