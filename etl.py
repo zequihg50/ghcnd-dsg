@@ -179,7 +179,7 @@ if __name__ == "__main__":
     with netCDF4.Dataset("ghcn-dsg.nc", "w") as f:
         f.setncattr("featureType", "timeSeries")
         #f.setncattr("cdm_data_type", "timeSeries")
-        f.setncattr("Conventions", "COARDS, CF-1.6, ACDD-1.3")
+        f.setncattr("Conventions", "CF-1.11")
         
         f.createDimension("name_strlen", 11)
         f.createDimension("timeseries", None)
