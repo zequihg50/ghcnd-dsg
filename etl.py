@@ -8,7 +8,7 @@ import requests
 from datetime import datetime
 from tqdm import tqdm
 
-SRC_DIR = "by_station_3"
+SRC_DIR = "by_station20"
 CHUNKS = (8192,)
 
 MFLAGS = np.array([ord("A"), ord("B"), ord("D"), ord("H"), ord("K"), ord("L"), ord("O"), ord("P"), ord("T"), ord("W")], dtype="b")
@@ -91,12 +91,18 @@ values_dtype = np.dtype([
     ('obstime', 'S4'),
 ])
 
+# CF - The missing values of a variable with scale_factor and/or add_offset
+# attributes (see Section 8.1, "Packed Data") are interpreted relative to
+# the variable’s external values (a.k.a. the packed values, the raw values,
+# the values stored in the netCDF file), not the values that result after
+# the scale and offset are applied.
 MISSING = np.int16(9999)
 
 VS = [
     {
         "name": "PRCP",
         "cfname": "pr",
+        "missing": MISSING,
         "attrs":
             {
                 "standard_name": "precipitation_flux",
@@ -108,6 +114,7 @@ VS = [
     {
         "name": "TMAX",
         "cfname": "tasmax",
+        "missing": MISSING,
         "attrs":
             {
                 "standard_name": "air_temperature",
@@ -119,6 +126,7 @@ VS = [
     {
         "name": "TMIN",
         "cfname": "tasmin",
+        "missing": MISSING,
         "attrs":
             {
                 "standard_name": "air_temperature",
@@ -130,6 +138,7 @@ VS = [
     {
         "name": "SNOW",
         "cfname": "snow",
+        "missing": MISSING,
         "attrs":
             {
                 "standard_name": "snow_amount",
@@ -140,6 +149,7 @@ VS = [
     {
         "name": "SNWD",
         "cfname": "snwd",
+        "missing": MISSING,
         "attrs":
             {
                 "standard_name": "snow_depth",
@@ -266,16 +276,16 @@ if __name__ == "__main__":
         for v in VS:
             f.createVariable(
                 v["cfname"],
-                MISSING.dtype,
+                v["missing"].dtype,
                 ("obs",),
                 chunksizes=CHUNKS,  # by default it chooses 2048, for 1 billion observations involves half a million chunks
                 compression="zlib",
                 complevel=1,
                 shuffle=True,
-                fill_value=MISSING)
+                fill_value=v["missing"])
                 #fletcher32=True)  # disabled to avoid issues with kerchunk in the future
             f[v["cfname"]].set_auto_scale(False)
-            f[v["cfname"]].setncattr("missing_value", MISSING)
+            f[v["cfname"]].setncattr("missing_value", v["missing"])
             for attr in v["attrs"]:
                 f[v["cfname"]].setncattr(attr, v["attrs"][attr])
 
@@ -364,7 +374,7 @@ if __name__ == "__main__":
                 vname = v["name"].encode("ascii")
                 vdata = data[data["var"] == vname]
 
-                f[v["cfname"]][frm:to] = np.repeat(MISSING, len(uniq_cftimes))
+                f[v["cfname"]][frm:to] = np.repeat(v["missing"], len(uniq_cftimes))
                 #f[f"{v['cfname']}_mf"][frm:to] = np.repeat(0, len(uniq_cftimes))
 
                 idx = np.where(
