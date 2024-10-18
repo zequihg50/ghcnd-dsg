@@ -10,3 +10,6 @@ dependencies:
   - matplotlib
   - cartopy
   - tqdm
+  - h5py
+  - fsspec
+  - numpy
