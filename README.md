@@ -11,7 +11,7 @@ wget https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt
 awk '{print "https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/"$1".csv.gz"}' ghcnd-stations.txt | parallel -j5 wget -nc -q -P by_station/ {}
 ```
 
-Takes 5 hours in serial for 1 variable and file size is 600MB. Takes 8 hours and 2,5GB for 5 variables.
+Info:
 
 ```
 ID = 11 character station identification code
@@ -24,10 +24,8 @@ S-FLAG = 1 character Source Flag
 OBS-TIME = 4-character time of observation in hour-minute format (i.e. 0700 =7:00 am)
 ```
 
-## ToDo
+## Notes
 
-- Include metadata from stations (compound data type in station\_info variable?)
-- Difference between https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/ and https://www.ncei.noaa.gov/pub/data/ghcn/daily/?
 - This is not going to work in the full dataset... See `pr.subspace(T=cf.dt('1916-06-03'))` vs `python field.py`.
 
 In the full dataset:
