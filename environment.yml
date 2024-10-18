@@ -13,3 +13,5 @@ dependencies:
   - h5py
   - fsspec
   - numpy
+  - requests
+  - aiohttp
